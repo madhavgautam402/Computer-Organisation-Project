@@ -247,3 +247,110 @@ def execute_j_type(instr, registers, pc):
         write_register(registers, rd, pc + 4)
         return pc + instr['imm']
     return pc + 4
+    
+# Executes instruction and updates PC
+
+def execute_instruction(instr, registers, memory, pc):
+    if instr['type'] == 'unknown':
+        print(f"Warning: Unknown instruction encountered: {instr['binary']}")
+        return pc + 4
+    next_pc = pc + 4
+    if instr['type'] == 'R':
+        execute_r_type(instr, registers)
+    elif instr['type'] == 'I':
+        result = execute_i_type(instr, registers, memory, pc)
+        if instr['op'] == 'jalr':
+            next_pc = result
+    elif instr['type'] == 'S':
+        execute_s_type(instr, registers, memory)
+    elif instr['type'] == 'B':
+        next_pc = execute_b_type(instr, registers, pc)
+    elif instr['type'] == 'J':
+        next_pc = execute_j_type(instr, registers, pc)
+    return next_pc
+
+# Loads RISC-V instructions from a file
+
+def load_program(filename):
+    try:
+        with open(filename, 'r') as f:
+            instruction_memory = [line.strip() for line in f if line.strip()]
+        return instruction_memory
+    except FileNotFoundError:
+        print(f"Error: File {filename} not found")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error loading program: {e}")
+        sys.exit(1)
+
+# Records current PC and register values as a trace
+
+def record_trace(pc, registers):
+    trace_line = f"{binary_format(pc)} "
+    for i in range(32):
+        reg_value = read_register(registers, i)
+        trace_line += f"{binary_format(reg_value)} "
+    trace_line += "\n"
+    return trace_line
+
+# Records memory state for debugging
+
+def record_memory_state(memory):
+    mem_state = ""
+    for addr in range(0x00010000, 0x00010080, 4):
+        value = read_word_memory(memory, addr) if addr in memory else 0
+        mem_state += f"0x{addr:08X}:{binary_format(value)}\n"
+    return mem_state
+
+# Writes execution trace to a file
+
+def write_trace(filename, trace_output):
+    with open(filename, 'w') as f:
+        for line in trace_output:
+            f.write(line)
+
+# Simulates execution of instruction memory
+
+def run_simulator(instruction_memory):
+    registers = init_registers()
+    memory = init_memory()
+    trace_output = []
+    running = True
+    pc = 0
+  
+    while running and pc // 4 < len(instruction_memory):
+        instruction = instruction_memory[pc // 4]
+        decoded_instr = decode_instruction(instruction)
+        next_pc = execute_instruction(decoded_instr, registers, memory, pc)
+        pc = next_pc
+        registers['pc'] = pc
+        trace_output.append(record_trace(pc, registers))
+        
+        if decoded_instr['type'] == 'B' and decoded_instr['op'] == 'beq' and \
+           decoded_instr['rs1'] == 0 and decoded_instr['rs2'] == 0 and \
+           decoded_instr['imm'] == 0:
+            running = False
+    
+    trace_output.append(record_memory_state(memory))
+    return trace_output
+
+# Processes input file & saves trace output
+
+def process_file(input_file, output_dir):
+    os.makedirs(output_dir, exist_ok=True)
+    output_file = os.path.join(output_dir, os.path.basename(input_file))
+    instruction_memory = load_program(input_file)
+    trace_output = run_simulator(instruction_memory)
+    write_trace(output_file, trace_output)
+
+def main():
+    if len(sys.argv) != 3:
+        print("Usage: python Simulator.py <input_file> <output_directory>")
+        sys.exit(1)
+    
+    input_file = sys.argv[1]
+    output_dir = sys.argv[2]
+    process_file(input_file, output_dir)
+
+if __name__ == "__main__":
+    main()
