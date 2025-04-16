@@ -337,17 +337,11 @@ def run_simulator(instruction_memory):
 # Processes input file & saves trace output
 
 def process_file(input_file, output_dir):
-    os.makedirs(output_dir, exist_ok=True)
-    output_file = os.path.join(output_dir, os.path.basename(input_file))
     instruction_memory = load_program(input_file)
     trace_output = run_simulator(instruction_memory)
-    write_trace(output_file, trace_output)
+    write_trace(output_dir, trace_output)
 
 def main():
-    if len(sys.argv) != 3:
-        print("Usage: python Simulator.py <input_file> <output_directory>")
-        sys.exit(1)
-    
     input_file = sys.argv[1]
     output_dir = sys.argv[2]
     process_file(input_file, output_dir)
